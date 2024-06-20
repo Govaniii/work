@@ -1,0 +1,127 @@
+from tkinter import *
+from tkinter import ttk
+
+from functools import partial
+import _sqlite3 as sl
+con = sl.connect('c.db')
+crsr = con.cursor()
+crsr.execute("create table if not exists tab_accounting(tab_number integer primary key, date date, FIO text, arrival_time time, departure_time time)")
+crsr.execute("insert into tab_accounting values (14025, '2021-12-30', 'Ivanov Ivan Ivanovich', '08:00', '16:00')")
+crsr.execute("insert into tab_accounting values (14952, '2021-12-30', 'Petrov Petr Petrovich', '09:00', '17:00')")
+def add_table(tab, headings, rows):
+    table = ttk.Treeview(tab, show="headings", selectmode="extended")
+    table["columns"]=headings
+    table["displaycolumns"]=headings
+    for head in headings:
+        table.heading(head, text=head, anchor= CENTER)
+        table.column(head, minwidth = 0, width=150, anchor= CENTER, stretch =  NO)
+    for row in rows:
+        table.insert('', END, values=tuple(row))
+    return table
+def add_all_labels(tab, columns):
+    lbls = []
+    lbls.append(Label(tab, text="Добавить:", font = ("Black", 12)))
+    for i in range(0, len(columns)):
+        lbls.append(Label(tab, text=columns[i]+":"))
+    lbls.append(Label(tab, text="Удалить:", font = ("Black", 12)))
+    for i in range(len(lbls)):
+        lbls[i].grid(row=i, column=0, sticky=W)
+    lbls[len(lbls)-1].grid(row=0, column=3, sticky=W)
+    lbls.append(Label(tab, text = "(выберите нужную строку"))
+    lbls[len(lbls)-1].grid(row=1, column=3, sticky=W)
+    lbls.append(Label(tab, text = " и нажмите кнопку):"))
+    lbls[len(lbls)-1].grid(row=2, column=3, sticky=W)
+    return lbls
+def add_all_entries(tab, c):
+    entrs = []
+    for i in range(c):
+        entrs.append(Entry(tab, textvariable=StringVar()))
+        entrs[i].grid(row=i+1, column=1)
+    return entrs
+def values_tuple(colname, tablename):
+    a = crsr.execute("select distinct " + colname + " from " + tablename).fetchall()
+    cmb=[]
+    for i in range(len(a)):
+        for j in range(len(a[i])):
+            cmb.append(a[i][j])
+    return tuple(cmb)
+def add_all_entries_and_comboboxes(tab, cmb):
+    mas = []
+    for i in range(len(cmb)):
+        if cmb[i] == 0:
+            mas.append(Entry(tab, textvariable=StringVar()))
+        else:
+            mas.append(ttk.Combobox(tab))
+            mas[i]['values'] = cmb[i]
+        mas[i].grid(row = i+1, column = 1)
+    return mas
+
+def del_data(tab_control, table, tablename, keyname):
+    for selection in table.selection():
+        item = table.item(selection)
+        key = item["values"][0]
+        table.delete(selection)
+        sql = "delete from " + tablename + " where " + keyname + " = '" + str(key) + "'"
+        crsr.execute(sql)
+        tabs = []
+        for i in tab_control.tabs():
+            tabs.append(tab_control.nametowidget(i))
+        for tab in tabs:
+            tab.destroy()
+        cr_tabs(tab_control)
+    return
+def ins_data(tab_control, table, entries, tablename):
+    row = []
+    for i in range(len(entries)):
+        row.append(entries[i].get())
+    row = tuple(row)
+    table.insert('', END, values=row)
+    sql = "insert into " + tablename + " values " + str(row)
+    crsr.execute(sql)
+    tabs = []
+    for i in tab_control.tabs():
+        tabs.append(tab_control.nametowidget(i))
+    for tab in tabs:
+        tab.destroy()
+    cr_tabs(tab_control)
+    return
+def cr_tab1(tab_control):
+    tab1 = ttk.Frame(tab_control) #вкладка 2
+    tab_control.add(tab1, text='Табельный учёт')
+    tab_accounting = crsr.execute("select tab_number as 'Табельный номер', date as 'Дата', FIO as 'ФИО', arrival_time as 'Время прибытия', departure_time as 'Время ухода' from tab_accounting")
+    colnames = tab_accounting.description
+    c_names = []
+    for i in colnames:
+        c_names.append(i[0])
+    labels_tab1 = add_all_labels(tab1, c_names)  # добавление надписей
+    mas1 = [0 for i in range(len(c_names))]
+    entries_tab1 = add_all_entries_and_comboboxes(tab1,mas1)  # добавление текстовых полей
+    table1 = add_table(tab1, c_names, tab_accounting)  # добавление таблицы
+    table1.grid(row=len(c_names) + 1, columnspan=15)
+    ins_data_table1 = partial(ins_data, tab_control, table1,entries_tab1, 'tab_accounting')  # изменение функции добавления специально для таблицы 1
+    ins_but_tab1 = Button(tab1, text="Добавить", command=ins_data_table1)  # добавление кнопки Добавить
+    ins_but_tab1.grid(row=len(c_names), column=2, sticky=W)
+    del_data_table1 = partial(del_data, tab_control, table1,'tab_accounting','tab_number')  # изменение функции удаления специально для таблицы 1
+    table1_bind = table1.bind("<ButtonRelease-1>", del_data_table1)  # фиксирование клика мыши на определенной строке
+    del_but_tab1 = Button(tab1, text="Удалить", command=table1_bind)  # добавление кнопки Удалить
+    del_but_tab1.grid(row=3, column=3, sticky=W)
+    return
+
+def cr_tabs(tab_control):
+    cr_tab1(tab_control)
+    return
+def window(): #работа с tkinter
+
+    root = Tk() #создание окна для менеджера
+    root.title("Сотрудники")
+    root.geometry('1024x1024')
+    tab_control = ttk.Notebook(root) #добавление вкладок
+    cr_tabs(tab_control)
+    tab_control.pack(expand=1, fill='both')
+
+    root.mainloop()
+    return
+
+window()
+con.commit()
+con.close()

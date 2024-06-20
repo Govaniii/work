@@ -1,0 +1,218 @@
+import _sqlite3 as sl
+from tkinter import *
+from tkinter import ttk
+from tkinter import messagebox
+from functools import partial
+
+con = sl.connect('b.db')
+crsr = con.cursor()
+crsr.execute("create table if not exists resignation(application_number text primary key, tab_number integer, division_code integer, FIO text, date date, reason text)")
+crsr.execute("create table if not exists relocation(application_number text primary key, tab_number integer, division_code_current integer, division_code_new integer, FIO text, date date, reason text)")
+crsr.execute("create table if not exists employment(application_number text primary key, FIO text, date_of_birth date, address text, passport text, phone text, previous_work text, education text)")
+crsr.execute("create table if not exists HR_employees(tab_number integer primary key, division_code integer, FIO text, date_of_birth date, address text, passport text, phone text, previous_work text, education text)")
+
+
+#crsr.execute("insert into resignation values ('65T78', 14952, 3003, 'Petrov Petr Petrovich', '2022-01-08', 'at your own request')")
+#crsr.execute("insert into resignation values ('88Y78', 14862, 5080, 'Medvedeva Yaroslava Daniilovna', '2021-12-31', 'at your own request')")
+#crsr.execute("insert into relocation values ('54I66', 14025, 5005, 5008, 'Ivanov Ivan Ivanovich', '2021-11-19', 'working conditions')")
+#crsr.execute("insert into relocation values ('00U56', 14032, 5080, 2002, 'Fokin Karl Rubenovich', '2021-11-26', 'working conditions')")
+#crsr.execute("insert into employment values ('55O67', 'Ivanov Ivan Ivanovich', '2010-05-05', 'Saint-Petersburg, Belovodsky lane, 3', '4020 567878', '8(800)555-35-35', 'Severstal', 'full higher education')")
+#crsr.execute("insert into employment values ('21R45', 'Medvedeva Yaroslava Daniilovna', '2004-08-05', 'Saint-Petersburg, Bogatyrsky Prospekt, 9', '4020 985556', '8(952)999-33-33', 'Ozon', 'full higher education')")
+#crsr.execute("insert into HR_employees values (14032, 5080, 'Fokin Karl Rubenovich', '1992-04-01', 'Saint-Petersburg, Aerodromnaya Street, 9', '4020 002533', '8(921)852-22-22', 'Amazon', 'full higher education')")
+#crsr.execute("insert into HR_employees values (14862, 5080, 'Medvedeva Yaroslava Daniilovna', '1980-02-29', 'Saint-Petersburg, Bogatyrsky Prospekt, 9', '4020 985556', '8(952)999-33-33', 'Ozon', 'full higher education')")
+
+
+
+def add_table(tab, headings, rows):
+    table = ttk.Treeview(tab, show="headings", selectmode="extended")
+    table["columns"] = headings
+    table["displaycolumns"] = headings
+    for head in headings:
+        table.heading(head, text=head, anchor=CENTER)
+        table.column(head, minwidth=0, width=150, anchor=CENTER, stretch=NO)
+    for row in rows:
+        table.insert('', END, values=tuple(row))
+    return table
+
+
+def add_all_labels(tab, columns):
+    lbls = []
+    lbls.append(Label(tab, text="Добавить:", font=("Segoe UI", 14)))
+    for i in range(0, len(columns)):
+        lbls.append(Label(tab, text=columns[i] + ":"))
+    lbls.append(Label(tab, text="Удалить:", font=("Segoe UI", 14)))
+    for i in range(len(lbls)):
+        lbls[i].grid(row=i, column=0, sticky=W)
+    lbls[len(lbls) - 1].grid(row=0, column=3, sticky=W)
+    lbls.append(Label(tab, text="(выберите нужную строку"))
+    lbls[len(lbls) - 1].grid(row=1, column=3, sticky=W)
+    lbls.append(Label(tab, text=" и нажмите кнопку):"))
+    lbls[len(lbls) - 1].grid(row=2, column=3, sticky=W)
+    return lbls
+
+
+def add_all_entries(tab, c):
+    entrs = []
+    for i in range(c):
+        entrs.append(Entry(tab, textvariable=StringVar()))
+        entrs[i].grid(row=i + 1, column=1)
+    return entrs
+
+
+def values_tuple(colname, tablename):
+    a = crsr.execute("select distinct " + colname + " from " + tablename).fetchall()
+    cmb = []
+    for i in range(len(a)):
+        for j in range(len(a[i])):
+            cmb.append(a[i][j])
+    return tuple(cmb)
+
+
+def add_all_entries_and_comboboxes(tab, cmb):
+    mas = []
+    for i in range(len(cmb)):
+        if cmb[i] == 0:
+            mas.append(Entry(tab, textvariable=StringVar()))
+        else:
+            mas.append(ttk.Combobox(tab))
+            mas[i]['values'] = cmb[i]
+        mas[i].grid(row=i + 1, column=1)
+    return mas
+
+
+def del_data(tab_control, table, tablename, keyname):
+    for selection in table.selection():
+        item = table.item(selection)
+        key = item["values"][0]
+        table.delete(selection)
+        sql = "delete from " + tablename + " where " + keyname + " = '" + str(key) + "'"
+        crsr.execute(sql)
+        tabs = []
+        for i in tab_control.tabs():
+            tabs.append(tab_control.nametowidget(i))
+        for tab in tabs:
+            tab.destroy()
+        cr_tabs(tab_control)
+    return
+
+
+def ins_data(tab_control, table, entries, tablename):
+    row = []
+    for i in range(len(entries)):
+        row.append(entries[i].get())
+    row = tuple(row)
+    table.insert('', END, values=row)
+    sql = "insert into " + tablename + " values " + str(row)
+    crsr.execute(sql)
+    tabs = []
+    for i in tab_control.tabs():
+        tabs.append(tab_control.nametowidget(i))
+    for tab in tabs:
+        tab.destroy()
+    cr_tabs(tab_control)
+    return
+def cr_tab1(tab_control):
+    tab1 = ttk.Frame(tab_control) #вкладка 3
+    tab_control.add(tab1, text='Заявления на увольнение')
+    resignation = crsr.execute("select application_number as 'Номер заявления', tab_number as 'Табельный номер', division_code as 'Код подраздления', FIO as 'ФИО', date as 'Дата', reason as 'Причина увольнения' from resignation")
+    colnames = resignation.description
+    c_names = []
+    for i in colnames:
+        c_names.append(i[0])
+    labels_tab1 = add_all_labels(tab1, c_names)  # добавление надписей
+    mas1 = [0 for i in range(len(c_names))]
+    entries_tab1 = add_all_entries_and_comboboxes(tab1,mas1)  # добавление текстовых полей
+    table1 = add_table(tab1, c_names, resignation)  # добавление таблицы
+    table1.grid(row=len(c_names) + 1, columnspan=15)
+    ins_data_table1 = partial(ins_data, tab_control, table1,entries_tab1,'resignation')  # изменение функции добавления специально для таблицы 1
+    ins_but_tab1 = Button(tab1, text="Добавить", command=ins_data_table1)  # добавление кнопки Добавить
+    ins_but_tab1.grid(row=len(c_names), column=2, sticky=W)
+    del_data_table1 = partial(del_data, tab_control, table1)  # изменение функции удаления специально для таблицы 1
+    table1_bind = table1.bind("<ButtonRelease-1>", del_data_table1)  # фиксирование клика мыши на определенной строке
+    del_but_tab1= Button(tab1, text="Удалить", command=table1_bind)  # добавление кнопки Удалить
+    del_but_tab1.grid(row=3, column=3, sticky=W)
+    return
+def cr_tab2(tab_control):
+    tab2 = ttk.Frame(tab_control) #вкладка 4
+    tab_control.add(tab2, text='Заявления на перемещение')
+    relocation = crsr.execute("select application_number as 'Номер заявления', tab_number as 'Табельный номер', division_code_current as 'Код текущего подразделения', division_code_new as 'Код будущего подразделения', FIO as 'ФИО', date as 'Дата', reason as 'Причина перевода' from relocation")
+    colnames = relocation.description
+    c_names = []
+    for i in colnames:
+        c_names.append(i[0])
+    labels_tab2 = add_all_labels(tab2, c_names)  # добавление надписей
+    mas2 = [0 for i in range(len(c_names))]
+    entries_tab2 = add_all_entries_and_comboboxes(tab2,mas2)  # добавление текстовых полей
+    table2 = add_table(tab2, c_names, relocation)  # добавление таблицы
+    table2.grid(row=len(c_names) + 1, columnspan=15)
+    ins_data_table2 = partial(ins_data, tab_control, table2,entries_tab2,'relocation')  # изменение функции добавления специально для таблицы 1
+    ins_but_tab2 = Button(tab2, text="Добавить", command=ins_data_table2)  # добавление кнопки Добавить
+    ins_but_tab2.grid(row=len(c_names), column=2, sticky=W)
+    del_data_table2 = partial(del_data, tab_control, table2)  # изменение функции удаления специально для таблицы 1
+    table2_bind = table2.bind("<ButtonRelease-1>", del_data_table2)  # фиксирование клика мыши на определенной строке
+    del_but_tab2= Button(tab2, text="Удалить", command=table2_bind)  # добавление кнопки Удалить
+    del_but_tab2.grid(row=3, column=3, sticky=W)
+    return
+def cr_tab3(tab_control):
+    tab3 = ttk.Frame(tab_control) #вкладка 5
+    tab_control.add(tab3, text='Заявления о приёме на работу')
+    employment = crsr.execute("select application_number as 'Номер заявления', FIO as 'ФИО', date_of_birth as 'Дата рождения', address as 'Адрес регистрации', passport as 'Паспорт', phone as 'Телефон', previous_work as 'Предыдущее место работы', education as 'Образование' from employment")
+    colnames = employment.description
+    c_names = []
+    for i in colnames:
+        c_names.append(i[0])
+    labels_tab3 = add_all_labels(tab3, c_names)  # добавление надписей
+    mas3 = [0 for i in range(len(c_names))]
+    entries_tab3 = add_all_entries_and_comboboxes(tab3,mas3)  # добавление текстовых полей
+    table3 = add_table(tab3, c_names, employment)  # добавление таблицы
+    table3.grid(row=len(c_names) + 1, columnspan=15)
+    ins_data_table3 = partial(ins_data, tab_control, table3,entries_tab3,'employment')  # изменение функции добавления специально для таблицы 1
+    ins_but_tab3 = Button(tab3, text="Добавить", command=ins_data_table3)  # добавление кнопки Добавить
+    ins_but_tab3.grid(row=len(c_names), column=2, sticky=W)
+    del_data_table3 = partial(del_data, tab_control, table3)  # изменение функции удаления специально для таблицы 1
+    table3_bind = table3.bind("<ButtonRelease-1>", del_data_table3)  # фиксирование клика мыши на определенной строке
+    del_but_tab3= Button(tab3, text="Удалить", command=table3_bind)  # добавление кнопки Удалить
+    del_but_tab3.grid(row=3, column=3, sticky=W)
+    return
+def cr_tab4(tab_control):
+    tab4 = ttk.Frame(tab_control) #вкладка 6
+    tab_control.add(tab4, text='Сотрудники отдела кадров')
+    HR_employees = crsr.execute("select tab_number as 'Табельный номер', division_code as 'Код подразделения', FIO as 'ФИО', date_of_birth as 'Дата рождения',address as 'Адрес регистрации', passport as 'Паспорт',phone as 'Телефон', previous_work as 'Предыдущее место работы', education as 'Образование' from HR_employees")
+    colnames = HR_employees.description
+    c_names = []
+    for i in colnames:
+        c_names.append(i[0])
+    labels_tab4 = add_all_labels(tab4, c_names)  # добавление надписей
+    mas4 = [0 for i in range(len(c_names))]
+    entries_tab4 = add_all_entries_and_comboboxes(tab4,mas4)  # добавление текстовых полей
+    table4 = add_table(tab4, c_names, HR_employees)  # добавление таблицы
+    table4.grid(row=len(c_names) + 1, columnspan=15)
+    ins_data_table4 = partial(ins_data, tab_control, table4,entries_tab4,'HR_employees')  # изменение функции добавления специально для таблицы 1
+    ins_but_tab4 = Button(tab4, text="Добавить", command=ins_data_table4)  # добавление кнопки Добавить
+    ins_but_tab4.grid(row=len(c_names), column=2, sticky=W)
+    del_data_table4 = partial(del_data, tab_control, table4)  # изменение функции удаления специально для таблицы 1
+    table4_bind = table4.bind("<ButtonRelease-1>", del_data_table4)  # фиксирование клика мыши на определенной строке
+    del_but_tab4= Button(tab4, text="Удалить", command=table4_bind)  # добавление кнопки Удалить
+    del_but_tab4.grid(row=3, column=3, sticky= W)
+    return
+def cr_tabs(tab_control):
+    cr_tab1(tab_control)
+    cr_tab2(tab_control)
+    cr_tab3(tab_control)
+    cr_tab4(tab_control)
+    return
+def window(): #работа с tkinter
+
+    root = Tk() #создание окна для менеджера
+    root.title("Директор отдела кадров")
+    root.geometry('1024x1024')
+    tab_control = ttk.Notebook(root) #добавление вкладок
+    cr_tabs(tab_control)
+    tab_control.pack(expand=1, fill='both')
+
+    root.mainloop()
+    return
+
+window()
+con.commit()
+con.close()
