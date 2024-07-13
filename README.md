@@ -15,16 +15,11 @@
    * Зачёт 2 Нетфликс - работу можно отнести к Autogluon, работа с датасетом Netflix обработка данных, фильтрация, просмотр распределения данных для дальнейшего обучения.
 ### Стек технологий для работы приложения написанной в бакалавриате
 
-* Tkinter-для работы front части;
-* sqlite- для работы backend части;
-* functools.
+**Python Lybrary:** Tkinter, sqlite, functools
+
 ### Стек технологий используемый при заказах на фрилансе
-* Autogluon
-* pandas
-* plotly
-* scikit-learn
-* pycaret
-* torch
-* torchvision 
+
+**Python Lybrary:**  Autogluon, pandas, numpy, plotly, seaborn, scikit-learn, matplotlib, pycaret, torch, torchvision, keras.
+
 ### Используемыые датасеты в работах
 Netflix - нашел примерно похожий [датасет](https://www.kaggle.com/datasets/rahulvyasm/netflix-movies-and-tv-shows), который использовался в работах, но не уверен, возможно заказчик, сам ещё правил.
